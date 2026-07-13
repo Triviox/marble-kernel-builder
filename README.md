@@ -90,6 +90,7 @@ Named after the project / author. Pick one in **Build Marble Kernel**:
 | `lineageos` | LineageOS | [`LineageOS/android_kernel_xiaomi_sm8450`](https://github.com/LineageOS/android_kernel_xiaomi_sm8450) | `lineage-23.2` | **LOS-based** custom ROMs only |
 | `evolution-x` | Evolution-X | [`Evolution-X-Devices/kernel_xiaomi_sm8450`](https://github.com/Evolution-X-Devices/kernel_xiaomi_sm8450) | `cnb` | **LOS-based** custom ROMs only |
 | `pablo` | Pablo | [`aosp-pablo/android_kernel_xiaomi_sm8450`](https://github.com/aosp-pablo/android_kernel_xiaomi_sm8450) | `16` | **LOS-based** custom ROMs only |
+| `pa-gr` | pa-gr | [`pa-gr/android_kernel_xiaomi_sm8450`](https://github.com/pa-gr/android_kernel_xiaomi_sm8450) | `vauxite` | **LOS-based** custom ROMs only |
 
 - **HyperOS (`melt`)** uses `marble_defconfig` and Android `clang-r416183b` via `toolchain=auto`.
 - **LOS-family kernels** merge `gki_defconfig` + vendor GKI fragments; `toolchain=auto` selects **`llvm-22.1.8`** (armv9). Prefer **`lto=thin`** on free runners.
@@ -103,6 +104,7 @@ Named after the project / author. Pick one in **Build Marble Kernel**:
 | `lineageos` | `auto` → `llvm-22.1.8` | `thin` | Required for armv9 |
 | `evolution-x` | `auto` → `llvm-22.1.8` | `thin` | LOS-family |
 | `pablo` | `auto` → `llvm-22.1.8` | `thin` | LOS-family |
+| `pa-gr` | `auto` → `llvm-22.1.8` | `thin` | LOS-family; default `vauxite` has in-tree KernelSU — smoke-test manager apply |
 
 **Free runners:** avoid many parallel LOS+LLVM jobs; prefer 1–2 heavy builds at a time. Prefer `lto=thin`, not `full`.
 
@@ -117,7 +119,7 @@ AK3_marble_<FAMILY>_<source>_<manager>[-version][-codeN][_susfs-vX.Y.Z]_rN.zip
 | FAMILY | Sources |
 |--------|---------|
 | `MELT` | `melt` |
-| `LOS` | `lineageos`, `evolution-x`, `pablo` |
+| `LOS` | `lineageos`, `evolution-x`, `pablo`, `pa-gr` |
 
 LTO and toolchain are **not** in the filename (see flash banner + `build-info.*`).
 
@@ -188,7 +190,7 @@ Do **not** enable SUSFS with `none` or `kernelsu`.
 ### Quick start — build
 
 1. Open **[Actions → Build Marble Kernel → Run workflow](https://github.com/mohdakil2426/marble-kernel-builder/actions)**
-2. Choose **kernel source** (`melt` / `lineageos` / `evolution-x` / `pablo`)
+2. Choose **kernel source** (`melt` / `lineageos` / `evolution-x` / `pablo` / `pa-gr`)
 3. Select manager checkbox(es)
 4. Set **lto** (default `thin`), SUSFS, optional `source_ref`, **toolchain** (LOS → `llvm-22.1.8`), scope
 5. Run · download artifacts when green
@@ -219,7 +221,7 @@ Do **not** enable SUSFS with `none` or `kernelsu`.
 | `enable_susfs` | `false` | Enable SUSFS for managers that support it |
 | `susfs_version` | `v2.2.0` | `v2.2.0` · `v2.1.0` · `custom` |
 | `susfs_ref` | *(empty)* | Branch/tag/commit — only with `custom` |
-| `kernel_source` | `melt` | Dropdown: `melt` · `lineageos` · `evolution-x` · `pablo` |
+| `kernel_source` | `melt` | Dropdown: `melt` · `lineageos` · `evolution-x` · `pablo` · `pa-gr` |
 | `source_ref` | *(empty)* | Optional branch/tag/commit override (preset default if empty) |
 | `build_scope` | `image-only` | `image-only` or `full` |
 | `toolchain` | `android-r416183b` | `android-r416183b` (default) or experimental `llvm-22.1.8` |
@@ -373,6 +375,7 @@ On A/B devices, target the correct slot (or both if needed).
 | 🟠 LineageOS SM8450 | [LineageOS/android_kernel_xiaomi_sm8450](https://github.com/LineageOS/android_kernel_xiaomi_sm8450) |
 | 🧬 Evolution-X SM8450 | [Evolution-X-Devices/kernel_xiaomi_sm8450](https://github.com/Evolution-X-Devices/kernel_xiaomi_sm8450) |
 | 🧩 Pablo SM8450 | [aosp-pablo/android_kernel_xiaomi_sm8450](https://github.com/aosp-pablo/android_kernel_xiaomi_sm8450) |
+| 🧪 pa-gr SM8450 | [pa-gr/android_kernel_xiaomi_sm8450](https://github.com/pa-gr/android_kernel_xiaomi_sm8450) (`vauxite`) |
 | 🫙 AnyKernel3 | [osm0sis/AnyKernel3](https://github.com/osm0sis/AnyKernel3) |
 | 🔐 KernelSU | [tiann/KernelSU](https://github.com/tiann/KernelSU) |
 | 🚀 KernelSU-Next | [KernelSU-Next/KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next) |

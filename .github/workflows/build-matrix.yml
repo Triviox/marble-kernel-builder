@@ -48,6 +48,7 @@ on:
           - lineageos
           - evolution-x
           - pablo
+          - pa-gr
       source_ref:
         description: "Override branch/tag/commit (empty = preset default)"
         required: false

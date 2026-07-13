@@ -67,5 +67,24 @@
     ],
     "recommended_toolchain": "llvm-22.1.8",
     "notes": "aosp-pablo SM8450 kernel (Marble Development). LOS-based custom ROMs only. Needs llvm-22.1.8 (armv9 flags)."
+  },
+  "pa-gr": {
+    "display": "pa-gr",
+    "author": "pa-gr",
+    "repo": "pa-gr/android_kernel_xiaomi_sm8450",
+    "default_ref": "vauxite",
+    "rom_label": "pa-gr",
+    "rom_family": "los",
+    "rom_support": "pa-gr / LOS-based custom ROMs only",
+    "defconfig_mode": "gki_fragments",
+    "base_defconfig": "gki_defconfig",
+    "config_fragments": [
+      "vendor/waipio_GKI.config",
+      "vendor/xiaomi_GKI.config",
+      "vendor/marble_GKI.config",
+      "vendor/debugfs.config"
+    ],
+    "recommended_toolchain": "llvm-22.1.8",
+    "notes": "pa-gr SM8450 marble kernel (default branch vauxite). GKI fragments + llvm-22.1.8. Note: vauxite ships in-tree KernelSU submodule/drivers — out-of-tree manager apply may conflict; smoke-test before release."
   }
 }

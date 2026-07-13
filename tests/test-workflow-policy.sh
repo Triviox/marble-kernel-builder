@@ -153,7 +153,7 @@ grep -Fq 'kernel_source:' "${matrix}" || {
   exit 1
 }
 
-for preset in melt lineageos evolution-x pablo; do
+for preset in melt lineageos evolution-x pablo pa-gr; do
   grep -Fq -- "- ${preset}" "${matrix}" || {
     echo "FAIL: matrix workflow missing kernel_source option: ${preset}" >&2
     exit 1

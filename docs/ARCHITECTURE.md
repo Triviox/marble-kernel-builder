@@ -98,7 +98,7 @@ Default CI scope is **`image-only`** (kernel `Image` → AnyKernel ZIP).
                 │                            ▼
                 │              ┌──────────────────────────────────┐
                 │              │ Remote kernel source (selected)  │
-                │              │ melt | lineageos | evo-x | pablo  │
+                │              │ melt | lineageos | evo-x | pablo | pa-gr │
                 │              └──────────────────────────────────┘
                 │                            │
                 ▼                            ▼
@@ -280,7 +280,7 @@ Parallel matrix builds of different managers share the group key only when those
 | `enable_susfs` | boolean | false | Applies to KSUNext / SukiSU / ReSukiSU only |
 | `susfs_version` | choice | `v2.2.0` | `v2.2.0` · `v2.1.0` · `custom` |
 | `susfs_ref` | string | empty | Only for custom SUSFS |
-| `kernel_source` | choice | `melt` | `melt` · `lineageos` · `evolution-x` · `pablo` |
+| `kernel_source` | choice | `melt` | `melt` · `lineageos` · `evolution-x` · `pablo` · `pa-gr` |
 | `source_ref` | string | empty | Override preset branch/tag/commit |
 | `build_scope` | choice | `image-only` | `image-only` · `full` |
 | `toolchain` | choice | `android-r416183b` | Or `llvm-22.1.8` (required for LOS armv9) |
@@ -365,8 +365,11 @@ Strategy: `fail-fast: false` so one manager failure does not cancel siblings.
 | `lineageos` | LineageOS | `LineageOS/android_kernel_xiaomi_sm8450` | `lineage-23.2` | `gki_fragments` | LOS |
 | `evolution-x` | Evolution-X | `Evolution-X-Devices/kernel_xiaomi_sm8450` | `cnb` | `gki_fragments` | LOS |
 | `pablo` | Pablo | `aosp-pablo/android_kernel_xiaomi_sm8450` | `16` | `gki_fragments` | LOS |
+| `pa-gr` | pa-gr | `pa-gr/android_kernel_xiaomi_sm8450` | `vauxite` | `gki_fragments` | LOS |
 
 LOS presets recommend **`llvm-22.1.8`** (armv9 march flags rejected by Android clang-12 / `clang-r416183b`).
+
+**pa-gr note:** default `vauxite` includes an in-tree `KernelSU` submodule / `drivers/kernelsu`. Out-of-tree manager apply may conflict — treat first CI runs as smoke tests.
 
 ### 7.2 Defconfig modes
 
@@ -692,7 +695,7 @@ AK3_marble_<FAMILY>_<source>_<manager>[-version][-codeN][_susfs-vX.Y.Z]_rN.zip
 
 | Token | Values |
 |-------|--------|
-| `FAMILY` | `MELT` (`melt`) · `LOS` (lineageos / evolution-x / pablo) |
+| `FAMILY` | `MELT` (`melt`) · `LOS` (lineageos / evolution-x / pablo / pa-gr) |
 | `manager` | `noroot` · `kernelsu` · `ksunext` · `sukisu` · `resukisu` |
 | SUSFS off | omit segment |
 | LTO | **not** in zip name (banner + build-info) |

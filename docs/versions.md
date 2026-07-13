@@ -1,6 +1,6 @@
 # Verified Defaults
 
-Last updated: **2026-07-13** (branch `feature/los-kernel-source-presets` — naming, auto toolchain, CI Cache section, Wild-style manager version).
+Last updated: **2026-07-13** (branch `feature/pa-gr-kernel-source` — pa-gr SM8450 preset).
 
 | Component | Repo | Default Ref | Version / Commit |
 |---|---|---|---|
@@ -8,6 +8,7 @@ Last updated: **2026-07-13** (branch `feature/los-kernel-source-presets` — nam
 | Kernel source (`lineageos`) | `LineageOS/android_kernel_xiaomi_sm8450` | `lineage-23.2` | LOS GKI fragments (`gki_defconfig` + marble vendor configs) |
 | Kernel source (`evolution-x`) | `Evolution-X-Devices/kernel_xiaomi_sm8450` | `cnb` | LOS-family GKI fragments for Evolution X / custom LOS |
 | Kernel source (`pablo`) | `aosp-pablo/android_kernel_xiaomi_sm8450` | `16` | LOS-family GKI fragments (Pablo / aosp-pablo) |
+| Kernel source (`pa-gr`) | `pa-gr/android_kernel_xiaomi_sm8450` | `vauxite` | LOS-family GKI fragments; default branch may ship in-tree KernelSU |
 | Android kernel Clang | `https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86` | `master-kernel-build-2021` | commit `6e3223f76384455acde43affde3df0ea9df66c0d`; sparse path `clang-r416183b`, matching `build.config.common` |
 | LLVM experimental | `https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-Linux-X64.tar.xz` | `llvmorg-22.1.8` | SHA-256 `df0e1ecf16caf3489a272a5eea4eec9b0d82878f6477fa309504f918a0006384`; selectable with `toolchain=llvm-22.1.8` |
 | AnyKernel3 | `osm0sis/AnyKernel3` | commit `dca9dc370838d919d56c1f59ec78b27a14a72c68` | Immutable packaging template |
@@ -23,7 +24,7 @@ Last updated: **2026-07-13** (branch `feature/los-kernel-source-presets` — nam
 
 The workflow resolves branch, tag, and commit inputs to exact commits at run time and records them in `release/build-info.txt`. For SUSFS, the user chooses `susfs_version=v2.2.0`, `susfs_version=v2.1.0`, or `susfs_version=custom`. Custom mode uses `susfs_ref` and verifies `susfs_expected_version` when provided.
 
-Device targets remain Poco F5 (`marblein`) and Redmi Note 12 Turbo (`marble`). ROM support depends on the selected kernel preset: `melt` is stock HyperOS; `lineageos`, `evolution-x`, and `pablo` are for LOS-based custom ROMs only.
+Device targets remain Poco F5 (`marblein`) and Redmi Note 12 Turbo (`marble`). ROM support depends on the selected kernel preset: `melt` is stock HyperOS; `lineageos`, `evolution-x`, `pablo`, and `pa-gr` are for LOS-based custom ROMs only.
 
 **ZIP naming (2026-07-13+):**
 
@@ -66,7 +67,7 @@ Workflow input `lto` selects Clang LTO mode for all presets (`none` / `thin` / `
 Notes:
 
 - **Melt / HyperOS** keeps LTO enabled (default `thin`) with Android `clang-r416183b`.
-- **LOS-family** presets (`lineageos`, `evolution-x`, `pablo`) should use `toolchain=llvm-22.1.8` and `lto=thin` on free runners; the workflow enables swap and caps parallelism to reduce OOM risk.
+- **LOS-family** presets (`lineageos`, `evolution-x`, `pablo`, `pa-gr`) should use `toolchain=llvm-22.1.8` and `lto=thin` on free runners; the workflow enables swap and caps parallelism to reduce OOM risk. `lto=full` is experimental on free runners (OOM risk).
 - Ccache: **4 GiB** (Android clang) / **6 GiB** (LLVM 22), content-based compiler checks, multi-level restore-keys (toolchain+LTO → kernel → source → manager).
 - ThinLTO: separate Actions cache for `~/.cache/thinlto` when `lto=thin` (similar to WildKernels LTO cache bucket).
 - **Object-cache save:** ccache / ThinLTO save on **failure as well as success** (`always() && !cancelled() && exact miss`). Partial compiles (e.g. fail at 90%) still warm the next run. ZIP/release stay success-only.

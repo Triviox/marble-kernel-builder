@@ -1,6 +1,6 @@
 # Manager Matrix
 
-Last checked: 2026-07-13 (manager policy + multi-kernel presets). Kernel **source** selection is independent — see `config/kernel-sources.json` and README presets (Melt vs LOS-family).
+Last checked: 2026-07-13 (manager policy + multi-kernel presets including `pa-gr`). Kernel **source** selection is independent — see `config/kernel-sources.json` and README presets (Melt vs LOS-family: lineageos / evolution-x / pablo / pa-gr).
 
 `none` is a baseline no-root build mode. It is useful for validating the clean kernel source, build system, packaging, and AnyKernel3 flashing path. It is not a root solution, and SUSFS is blocked with `none` because SUSFS needs manager-side KernelSU-compatible hooks.
 

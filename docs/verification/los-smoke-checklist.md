@@ -46,3 +46,26 @@ notes:
 ```
 
 Do **not** claim LOS product readiness until device boot is recorded.
+
+## pa-gr smoke (optional)
+
+| Input | Value |
+|-------|--------|
+| `kernel_source` | `pa-gr` |
+| default ref | `vauxite` (`source_ref` empty) |
+| `toolchain` | `auto` → `llvm-22.1.8` |
+| `lto` | `thin` first; `full` only as experiment (free-runner OOM risk) |
+| `build_kernelsu_next` | `true` |
+| `enable_susfs` | `true` |
+| other managers | `false` |
+
+**Expect ZIP:** `AK3_marble_LOS_pa-gr_ksunext-..._susfs-v2.2.0_rN.zip`
+
+**Risk:** `vauxite` may ship in-tree KernelSU (`KernelSU` submodule / `drivers/kernelsu`) — manager apply can fail or double-apply; treat first green/fail as CI signal only.
+
+```text
+run: (paste)
+date:
+result: pass | fail
+notes:
+```
