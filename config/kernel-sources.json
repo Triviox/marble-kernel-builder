@@ -49,14 +49,14 @@
     "recommended_toolchain": "llvm-22.1.8",
     "notes": "Evolution-X device org SM8450 kernel for marble. Prefer clean branches without in-tree KSU. Needs llvm-22.1.8 (armv9 flags)."
   },
-  "pablo": {
-    "display": "Pablo",
-    "author": "Pablo",
+  "aosp-pablo": {
+    "display": "aosp-pablo",
+    "author": "aosp-pablo",
     "repo": "aosp-pablo/android_kernel_xiaomi_sm8450",
     "default_ref": "16",
-    "rom_label": "Pablo",
+    "rom_label": "aosp-pablo",
     "rom_family": "los",
-    "rom_support": "Pablo / LOS-based custom ROMs only",
+    "rom_support": "aosp-pablo / LOS-based custom ROMs only",
     "defconfig_mode": "gki_fragments",
     "base_defconfig": "gki_defconfig",
     "config_fragments": [
@@ -66,7 +66,7 @@
       "vendor/debugfs.config"
     ],
     "recommended_toolchain": "llvm-22.1.8",
-    "notes": "aosp-pablo SM8450 kernel (Marble Development). LOS-based custom ROMs only. Needs llvm-22.1.8 (armv9 flags)."
+    "notes": "GitHub org aosp-pablo SM8450 kernel (Marble Development). LOS-based custom ROMs only. Needs llvm-22.1.8 (armv9 flags)."
   },
   "pa-gr": {
     "display": "pa-gr",
@@ -85,6 +85,12 @@
       "vendor/debugfs.config"
     ],
     "recommended_toolchain": "llvm-22.1.8",
-    "notes": "pa-gr SM8450 marble kernel (default branch vauxite). GKI fragments + llvm-22.1.8. Note: vauxite ships in-tree KernelSU submodule/drivers — out-of-tree manager apply may conflict; smoke-test before release."
+    "notes": "pa-gr SM8450 marble kernel (default branch vauxite). GKI fragments + llvm-22.1.8. Optional source_patches for Clang 22 KVM clidr (remove when upstream fixed). vauxite may ship in-tree KernelSU — smoke-test manager apply.",
+    "source_patches": {
+      "enabled": true,
+      "dir": "patches/kernel-sources/pa-gr/vauxite",
+      "match_refs": ["vauxite"],
+      "notes": "Clang 22 -Wuninitialized-const-pointer on sys_regs.c. Disable or delete when pa-gr/vauxite includes equivalent fix."
+    }
   }
 }

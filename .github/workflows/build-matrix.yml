@@ -47,7 +47,7 @@ on:
           - melt
           - lineageos
           - evolution-x
-          - pablo
+          - aosp-pablo
           - pa-gr
       source_ref:
         description: "Override branch/tag/commit (empty = preset default)"

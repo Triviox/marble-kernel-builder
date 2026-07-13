@@ -153,12 +153,27 @@ grep -Fq 'kernel_source:' "${matrix}" || {
   exit 1
 }
 
-for preset in melt lineageos evolution-x pablo pa-gr; do
+for preset in melt lineageos evolution-x aosp-pablo pa-gr; do
   grep -Fq -- "- ${preset}" "${matrix}" || {
     echo "FAIL: matrix workflow missing kernel_source option: ${preset}" >&2
     exit 1
   }
 done
+
+grep -Fq 'apply-kernel-source-patches.sh' "${core}" || {
+  echo "FAIL: build-core does not apply optional kernel source-local patches" >&2
+  exit 1
+}
+
+[[ -f patches/kernel-sources/pa-gr/vauxite/series ]] || {
+  echo "FAIL: pa-gr vauxite patch series missing" >&2
+  exit 1
+}
+
+[[ -f scripts/apply-kernel-source-patches.sh ]] || {
+  echo "FAIL: apply-kernel-source-patches.sh missing" >&2
+  exit 1
+}
 
 grep -Fq 'kernel_source: ${{ inputs.kernel_source }}' "${matrix}" || {
   echo "FAIL: matrix workflow does not pass kernel_source to build-core" >&2

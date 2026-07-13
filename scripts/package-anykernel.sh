@@ -72,7 +72,7 @@ derive_package_family() {
   esac
 
   case "${kernel_source}" in
-    lineageos|evolution-x|pablo|pa-gr) echo "LOS" ;;
+    lineageos|evolution-x|aosp-pablo|pa-gr) echo "LOS" ;;
     *) echo "MELT" ;;
   esac
 }
