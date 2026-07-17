@@ -1,0 +1,3 @@
+# Ordered list of patches for pa-gr @ vauxite only.
+# One filename per line. Lines starting with # are ignored.
+0001-kvm-arm64-init-clidr-for-clang22.patch

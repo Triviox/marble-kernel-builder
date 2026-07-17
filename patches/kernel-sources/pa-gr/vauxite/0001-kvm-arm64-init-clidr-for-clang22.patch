@@ -1,0 +1,27 @@
+From: Marble Kernel Builder <builder@local>
+Subject: [PATCH] KVM: arm64: initialize clidr for Clang 22 -Wuninitialized-const-pointer
+
+Clang 22 treats an uninitialized `struct sys_reg_desc clidr` passed to
+get_clidr_el1() as an error under -Werror (-Wuninitialized-const-pointer).
+
+get_clidr_el1() fills clidr.val; zero-init is a no-op for runtime and silences
+the diagnostic on older Android GKI trees that still use this pattern.
+
+Marble-local: pa-gr/android_kernel_xiaomi_sm8450 @ vauxite only.
+Remove when upstream includes an equivalent fix or reworks this path.
+
+---
+ arch/arm64/kvm/sys_regs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kvm/sys_regs.c b/arch/arm64/kvm/sys_regs.c
+--- a/arch/arm64/kvm/sys_regs.c
++++ b/arch/arm64/kvm/sys_regs.c
+@@ -2750,7 +2750,7 @@ void kvm_sys_reg_table_init(void)
+ {
+ 	unsigned int i;
+-	struct sys_reg_desc clidr;
++	struct sys_reg_desc clidr = {0};
+ 
+ 	/* Make sure tables are unique and in order. */
+ 	BUG_ON(check_sysreg_table(sys_reg_descs, ARRAY_SIZE(sys_reg_descs), false));

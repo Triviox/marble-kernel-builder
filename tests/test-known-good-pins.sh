@@ -16,6 +16,11 @@ assert "managers" in data
 assert "sources" in data
 assert "melt" in data["sources"]
 assert "lineageos" in data["sources"]
+assert "pa-gr" in data["sources"]
+assert data["sources"]["pa-gr"]["repo"] == "pa-gr/android_kernel_xiaomi_sm8450"
+assert data["sources"]["pa-gr"]["ref"] == "vauxite"
+assert "aosp-pablo" in data["sources"]
+assert data["sources"]["aosp-pablo"]["repo"] == "aosp-pablo/android_kernel_xiaomi_sm8450"
 print("known-good-pins ok")
 PY
 

@@ -46,7 +46,7 @@ config_fragments = " ".join(fragments)
 recommended_toolchain = preset.get("recommended_toolchain") or ""
 
 rom_family_norm = (rom_family or "").lower()
-if rom_family_norm == "los" or kernel_source in ("lineageos", "evolution-x", "pablo"):
+if rom_family_norm == "los" or kernel_source in ("lineageos", "evolution-x", "aosp-pablo", "pa-gr"):
     package_family = "LOS"
 else:
     package_family = "MELT"

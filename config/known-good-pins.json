@@ -27,9 +27,13 @@
       "repo": "Evolution-X-Devices/kernel_xiaomi_sm8450",
       "ref": "cnb"
     },
-    "pablo": {
+    "aosp-pablo": {
       "repo": "aosp-pablo/android_kernel_xiaomi_sm8450",
       "ref": "16"
+    },
+    "pa-gr": {
+      "repo": "pa-gr/android_kernel_xiaomi_sm8450",
+      "ref": "vauxite"
     }
   }
 }

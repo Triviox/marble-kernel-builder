@@ -37,7 +37,8 @@ assert_contains "${out}" "KERNEL_SOURCE_AUTHOR=Melt"
 for preset_repo in \
   "lineageos|LineageOS/android_kernel_xiaomi_sm8450|lineage-23.2|LineageOS" \
   "evolution-x|Evolution-X-Devices/kernel_xiaomi_sm8450|cnb|Evolution-X" \
-  "pablo|aosp-pablo/android_kernel_xiaomi_sm8450|16|Pablo"
+  "aosp-pablo|aosp-pablo/android_kernel_xiaomi_sm8450|16|aosp-pablo" \
+  "pa-gr|pa-gr/android_kernel_xiaomi_sm8450|vauxite|pa-gr"
 do
   IFS='|' read -r preset repo ref author <<<"${preset_repo}"
   out="$(
@@ -97,9 +98,16 @@ assert_name \
   MANAGER=none ENABLE_SUSFS=false
 
 assert_name \
-  'AK3_marble_LOS_pablo_resukisu-v4.1.0-code34990_r9.zip' \
-  KERNEL_SOURCE=pablo ROM_FAMILY=los \
+  'AK3_marble_LOS_aosp-pablo_resukisu-v4.1.0-code34990_r9.zip' \
+  KERNEL_SOURCE=aosp-pablo ROM_FAMILY=los \
   MANAGER=resukisu ENABLE_SUSFS=false \
   manager_build_version_name=v4.1.0 manager_build_version_code=34990
+
+assert_name \
+  'AK3_marble_LOS_pa-gr_ksunext-v3.2.0-code33203_susfs-v2.2.0_r9.zip' \
+  KERNEL_SOURCE=pa-gr ROM_FAMILY=los \
+  MANAGER=kernelsu-next ENABLE_SUSFS=true \
+  manager_build_version_name='v3.2.0' manager_build_version_code=33203 \
+  susfs_reported_version=v2.2.0
 
 echo "Kernel source preset tests passed"
