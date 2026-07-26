@@ -85,6 +85,16 @@ manager_code_only() {
   echo "${build_code:-${static_code:-—}}"
 }
 
+# Human-readable size for a ZIP, or "—" when the file was not downloaded.
+zip_size_of() {
+  local path="$1"
+  if [[ -f "${path}" ]]; then
+    du -h "${path}" | awk '{print $1}'
+  else
+    echo "—"
+  fi
+}
+
 first_info="${artifact_dirs[0]}/build-info.txt"
 if [[ ! -f "${first_info}" ]]; then
   echo "::error::Missing build-info.txt in ${artifact_dirs[0]}"
@@ -107,6 +117,17 @@ lto_mode="$(get_info "${first_info}" lto)"
 lto_mode="${lto_mode:-thin}"
 package_family="$(get_info "${first_info}" package_family)"
 enable_susfs_first="$(get_info "${first_info}" enable_susfs)"
+kernel_source_id="$(get_info "${first_info}" kernel_source)"
+kernel_source_author="$(get_info "${first_info}" kernel_source_author)"
+rom_support="$(get_info "${first_info}" rom_support)"
+quality_label="$(get_info "${first_info}" quality_label)"
+defconfig="$(get_info "${first_info}" defconfig)"
+defconfig_mode="$(get_info "${first_info}" defconfig_mode)"
+base_defconfig="$(get_info "${first_info}" base_defconfig)"
+runner_image_os="$(get_info "${first_info}" runner_image_os)"
+runner_image_version="$(get_info "${first_info}" runner_image_version)"
+disk_before="$(get_info "${first_info}" disk_available_before_build_gib)"
+anykernel_ref="${ANYKERNEL3_REF:-}"
 build_date="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 run_number="${SOURCE_RUN_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
 susfs_display="${susfs_reported:-${susfs_version}}"
@@ -155,31 +176,96 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   echo
   echo "---"
   echo
-  echo "## ⚠️ Before you flash"
+
+  # ── Result (headline verdict, first thing a reader sees) ──────────────────
+  echo "## ✅ Result"
   echo
-  echo "> Custom kernels can bootloop or cause data loss. Artifacts are provided **as-is**."
-  echo ">"
-  echo "> - 💾 Back up \`boot.img\` from the **same** ROM / firmware"
-  echo "> - 🔓 Unlocked bootloader required"
-  echo "> - 📱 **Poco F5** (\`marblein\`) or **Redmi Note 12 Turbo** (\`marble\`) only"
-  echo "> - 🧩 Match **device + ROM** to the build you flash"
-  echo "> - ✅ Verify **SHA-256** before flashing"
+  echo "> [!NOTE]"
+  echo "> **${manager_count} of ${manager_count} manager builds passed.** Every ZIP below was compiled from the **same** kernel commit, the **same** toolchain and the **same** SUSFS commit — they differ *only* by root manager."
   echo
-  echo '<div align="center">'
-  echo
-  echo "### 🚨 Proceed at your own risk"
-  echo
-  echo '</div>'
+  echo "| Manager | Version | Code | SUSFS | Build | Size |"
+  echo "|:---|:---|:---:|:---:|:---:|:---:|"
+  for artifact_dir in "${artifact_dirs[@]}"; do
+    build_info="${artifact_dir}/build-info.txt"
+    zip_env="${artifact_dir}/zip-name.env"
+    [[ -f "${build_info}" && -f "${zip_env}" ]] || continue
+    # shellcheck disable=SC1090
+    source "${zip_env}"
+    manager_name="$(get_info "${build_info}" manager)"
+    display="$(manager_display "${manager_name}")"
+    version_cell="$(manager_version_only "${build_info}")"
+    code_cell="$(manager_code_only "${build_info}")"
+    enable_susfs="$(get_info "${build_info}" enable_susfs)"
+    if [[ "${enable_susfs}" == "true" ]]; then
+      susfs_cell="🛡️ on"
+    else
+      susfs_cell="—"
+    fi
+    echo "| **${display}** | \`${version_cell}\` | \`${code_cell}\` | ${susfs_cell} | ✅ passed | $(zip_size_of "${artifact_dir}/${zip_name}") |"
+  done
   echo
   echo "---"
   echo
+
+  # ── Which ZIP to flash (the question every reader actually has) ───────────
+  echo "## 🎯 Which ZIP do I flash?"
+  echo
+  echo "> [!IMPORTANT]"
+  echo "> **Pick exactly one.** These are alternative kernels, not components of a set. Flashing a second one simply replaces the first."
+  echo
+  echo "| If you want | Flash this ZIP | Then install |"
+  echo "|:---|:---|:---|"
+  for artifact_dir in "${artifact_dirs[@]}"; do
+    build_info="${artifact_dir}/build-info.txt"
+    zip_env="${artifact_dir}/zip-name.env"
+    [[ -f "${build_info}" && -f "${zip_env}" ]] || continue
+    # shellcheck disable=SC1090
+    source "${zip_env}"
+    manager_name="$(get_info "${build_info}" manager)"
+    display="$(manager_display "${manager_name}")"
+    version_cell="$(manager_version_only "${build_info}")"
+    app_url="$(manager_app_url "${manager_name}")"
+    if [[ "${manager_name}" == "none" ]]; then
+      echo "| **No root** — clean baseline kernel | \`${zip_name}\` | nothing — this build has no manager |"
+    elif [[ -n "${app_url}" ]]; then
+      echo "| **${display}** \`${version_cell}\` | \`${zip_name}\` | [${display} app](${app_url}) |"
+    else
+      echo "| **${display}** \`${version_cell}\` | \`${zip_name}\` | the ${display} manager app |"
+    fi
+  done
+  echo
+  if [[ "${enable_susfs_first}" == "true" ]]; then
+    echo "Every rooted ZIP here also needs the [SUSFS userspace module](https://github.com/sidex15/susfs4ksu-module/releases) matching \`${susfs_display}\`. The kernel patch alone does not give you working hiding."
+    echo
+  fi
+  echo "---"
+  echo
+
+  # ── Before you flash ─────────────────────────────────────────────────────
+  echo "## ⚠️ Before you flash"
+  echo
+  echo "> [!CAUTION]"
+  echo "> Custom kernels can bootloop or cause data loss. Artifacts are provided **as-is**."
+  echo
+  echo "| | Check |"
+  echo "|:---:|:---|"
+  if [[ -n "${rom_support}" ]]; then
+    echo "| 🟠 | **${rom_support}** — flashing across ROM families is the most common way to bootloop this device |"
+  fi
+  echo "| 📱 | **Poco F5** (\`marblein\`) or **Redmi Note 12 Turbo** (\`marble\`) only |"
+  echo "| 🔓 | Unlocked bootloader required |"
+  echo "| 💾 | Back up \`boot.img\` from the **same** ROM / firmware, stored **off-device** |"
+  echo "| 🧩 | Match **device + ROM** to the build you flash |"
+  echo "| ✅ | Verify **SHA-256** before flashing |"
+  echo
+  echo "---"
+  echo
+
+  # ── Matrix configuration ─────────────────────────────────────────────────
   echo "## ⚙️ Matrix configuration"
   echo
   echo "| | |"
   echo "|:---|:---|"
-  kernel_source_id="$(get_info "${first_info}" kernel_source)"
-  kernel_source_author="$(get_info "${first_info}" kernel_source_author)"
-  rom_support="$(get_info "${first_info}" rom_support)"
   echo "| 📱 **Device** | Poco F5 (\`marblein\`) · Redmi Note 12 Turbo (\`marble\`) |"
   if [[ -n "${rom_support}" ]]; then
     echo "| 🟠 **ROM support** | **${rom_support}** |"
@@ -193,7 +279,17 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
       echo "| 👤 **Kernel source** | **${_ks_label}** (\`${_ks_id}\`) |"
     fi
   fi
+  echo "| 📦 **Source** | [\`${source_ref} @ $(short_commit "${source_commit}")\`](https://github.com/${source_repo}/commit/${source_commit}) |"
   echo "| 🧬 **Kernel base** | \`android12-5.10\` |"
+  if [[ -n "${defconfig}" ]]; then
+    if [[ -n "${defconfig_mode}" ]]; then
+      echo "| 🧾 **Defconfig** | \`${defconfig}\` · mode \`${defconfig_mode}\` |"
+    else
+      echo "| 🧾 **Defconfig** | \`${defconfig}\` |"
+    fi
+  elif [[ -n "${base_defconfig}" ]]; then
+    echo "| 🧾 **Defconfig** | \`${base_defconfig}\` + vendor fragments · mode \`${defconfig_mode:-gki_fragments}\` |"
+  fi
   echo "| 🛠️ **Build scope** | \`${BUILD_SCOPE}\` |"
   if [[ -n "${package_family}" ]]; then
     echo "| 🏷️ **Package family** | \`${package_family}\` |"
@@ -202,7 +298,6 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   if [[ -n "${toolchain_id}" ]]; then
     echo "| 🧰 **Toolchain** | \`${toolchain_id}\` |"
   fi
-  echo "| 📦 **Source** | [\`${source_ref} @ $(short_commit "${source_commit}")\`](https://github.com/${source_repo}/commit/${source_commit}) |"
   echo "| 🔨 **Compiler** | \`${android_clang_version:-clang-r416183b}\` |"
   if [[ -n "${android_clang_commit}" ]]; then
     echo "| 🧷 **Compiler commit** | \`$(short_commit "${android_clang_commit}")\` |"
@@ -211,6 +306,19 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
     echo "| 🛡️ **SUSFS** | \`${susfs_display}\` · \`${susfs_branch}\` · [\`$(short_commit "${susfs_commit}")\`](${susfs_url}) |"
   else
     echo "| 🛡️ **SUSFS** | Disabled |"
+  fi
+  if [[ -n "${quality_label}" ]]; then
+    echo "| 🧪 **Quality** | \`${quality_label}\` |"
+  fi
+  if [[ -n "${runner_image_os}" ]]; then
+    _runner="\`${runner_image_os}\`"
+    if [[ -n "${runner_image_version}" ]]; then
+      _runner="${_runner} · image \`${runner_image_version}\`"
+    fi
+    if [[ -n "${disk_before}" ]]; then
+      _runner="${_runner} · \`${disk_before} GiB\` free before build"
+    fi
+    echo "| 🖥️ **Runner** | ${_runner} |"
   fi
   echo "| ✅ **Result** | **${manager_count} / ${manager_count}** manager builds passed |"
   echo
@@ -224,8 +332,8 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
     echo
     echo "> CI diagnostics only — this section is **not** included in GitHub Release notes."
     echo
-    echo "| Manager | Actions ccache | Actions ThinLTO |"
-    echo "|:---|:---:|:---:|"
+    echo "| Manager | Actions ccache | Actions ThinLTO | Hit rate |"
+    echo "|:---|:---:|:---:|:---:|"
     for artifact_dir in "${artifact_dirs[@]}"; do
       build_info="${artifact_dir}/build-info.txt"
       [[ -f "${build_info}" ]] || continue
@@ -233,7 +341,8 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
       m_display="$(manager_display "${m_name}")"
       m_ccache="$(get_info "${build_info}" ccache_hit)"
       m_thin="$(get_info "${build_info}" thinlto_cache_hit)"
-      echo "| **${m_display}** | \`${m_ccache:-unknown}\` | \`${m_thin:-n/a}\` |"
+      m_rate="$(summary_format_ccache_hits "${artifact_dir}/ccache-stats.txt")"
+      echo "| **${m_display}** | \`${m_ccache:-unknown}\` | \`${m_thin:-n/a}\` | ${m_rate} |"
     done
     echo
     # Embed default ccache -s text (same as ccache-stats.txt artifact) per manager.
@@ -258,6 +367,8 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   }
   echo "---"
   echo
+
+  # ── Managers ─────────────────────────────────────────────────────────────
   echo "## 🔑 Managers"
   echo
   echo "| Manager | Version | Code | SUSFS | Status |"
@@ -324,6 +435,7 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
     if [[ -n "${manager_repo}" && -n "${manager_commit}" ]]; then
       echo "| 🔗 **Commit** | [\`$(short_commit "${manager_commit}")\`](https://github.com/${manager_repo}/commit/${manager_commit}) |"
     fi
+    echo "| 📦 **Flashable ZIP** | \`${zip_name}\` |"
     if [[ -n "${sig_size}" ]]; then
       echo "| ✍️ **Signature size** | \`${sig_size}\` |"
     fi
@@ -334,7 +446,7 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
       echo "| 🤝 **Supported managers** | ${supported_line//,/, } |"
     fi
     if [[ "${manager_name}" == "kernelsu-next" && "$(get_info "${build_info}" enable_susfs)" == "true" ]]; then
-      echo "| 📌 **Note** | Non-SUSFS builds use official \`KernelSU-Next/KernelSU-Next@dev\` · SUSFS builds use \`pershoot/dev-susfs\` |"
+      echo "| 📌 **Ref policy** | Non-SUSFS builds use official \`KernelSU-Next/KernelSU-Next@dev\` · SUSFS builds use \`pershoot/dev-susfs\` |"
     fi
     if [[ -n "${app_url}" ]]; then
       echo "| 📦 **App** | [Manager releases](${app_url}) |"
@@ -346,6 +458,7 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   echo "---"
   echo
 
+  # ── SUSFS ────────────────────────────────────────────────────────────────
   echo "## 🛡️ SUSFS"
   echo
   if [[ "${enable_susfs_first}" == "true" ]]; then
@@ -356,6 +469,7 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
     if [[ -n "${susfs_commit}" ]]; then
       echo "| 🔗 **Commit** | [\`$(short_commit "${susfs_commit}")\`](${susfs_url}) |"
     fi
+    echo "| ✅ **Kconfig verified** | \`CONFIG_KSU=y\` · \`CONFIG_KSU_SUSFS=y\` |"
     echo "| 📦 **Userspace module** | [sidex15/susfs4ksu-module](https://github.com/sidex15/susfs4ksu-module/releases) |"
     echo
     summary_susfs_module_note
@@ -366,6 +480,7 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   echo "---"
   echo
 
+  # ── Artifacts & checksums ────────────────────────────────────────────────
   echo "## 📦 Artifacts & checksums"
   echo
   echo "| Manager | File | Size | SHA-256 |"
@@ -389,9 +504,59 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
     echo "| ${display} | \`${zip_name}\` | ${zip_size} | \`${zip_sha}\` |"
   done
   echo
+  echo "Each artifact also carries \`build-info.txt\`, \`build-info.json\`, \`summary.md\`, \`zip-audit.txt\` and \`ccache-stats.txt\`."
+  echo
   echo "---"
   echo
 
+  # ── Reproduce ────────────────────────────────────────────────────────────
+  echo "## 🔁 Reproduce this build"
+  echo
+  echo "Every resolved input, in one block. Same values in → byte-identical \`Image\` out."
+  echo
+  echo '```yaml'
+  echo "kernel_source:   ${kernel_source_id:-unknown}"
+  echo "source_repo:     ${source_repo}"
+  echo "source_ref:      ${source_ref}"
+  echo "source_commit:   ${source_commit}"
+  echo "toolchain:       ${toolchain_id:-unknown}"
+  if [[ -n "${android_clang_commit}" ]]; then
+    echo "clang_commit:    ${android_clang_commit}"
+  fi
+  echo "lto:             ${lto_mode}"
+  echo "build_scope:     ${BUILD_SCOPE}"
+  echo "enable_susfs:    ${enable_susfs_first:-false}"
+  if [[ "${enable_susfs_first}" == "true" ]]; then
+    echo "susfs_version:   ${susfs_display}"
+    echo "susfs_branch:    ${susfs_branch}"
+    echo "susfs_commit:    ${susfs_commit}"
+  fi
+  if [[ -n "${anykernel_ref}" ]]; then
+    echo "anykernel3:      ${anykernel_ref}"
+  fi
+  echo "managers:"
+  for artifact_dir in "${artifact_dirs[@]}"; do
+    build_info="${artifact_dir}/build-info.txt"
+    [[ -f "${build_info}" ]] || continue
+    manager_name="$(get_info "${build_info}" manager)"
+    [[ "${manager_name}" == "none" ]] && continue
+    manager_repo="$(get_info "${build_info}" manager_repo)"
+    manager_ref="$(get_info "${build_info}" manager_ref)"
+    manager_commit="$(get_info "${build_info}" manager_commit)"
+    echo "  ${manager_name}: ${manager_repo}@${manager_ref} ${manager_commit}"
+  done
+  echo '```'
+  echo
+  echo "🔏 **Provenance** — every ZIP carries an OIDC-backed [artifact attestation](https://github.com/${builder_repo}/attestations). Verify a download with:"
+  echo
+  echo '```bash'
+  echo "gh attestation verify <zip> --repo ${builder_repo}"
+  echo '```'
+  echo
+  echo "---"
+  echo
+
+  # ── Installation ─────────────────────────────────────────────────────────
   echo "## 📲 Installation"
   echo
   echo "<details>"
@@ -435,12 +600,13 @@ lto_badge_url="https://img.shields.io/badge/LTO-$(badge_encode "${lto_mode}")-9C
   echo
   echo "</details>"
   echo
-  echo "> [!WARNING]"
-  echo "> **Bootloop?** Flash the original \`boot.img\` from the same ROM/firmware back to the active slot (Kernel Flasher or fastboot). Keep that backup accessible **before** you flash."
+  echo "> [!CAUTION]"
+  echo "> **Bootloop?** Flash the original \`boot.img\` from the same ROM/firmware back to the active slot (Kernel Flasher or fastboot). On A/B devices confirm you are targeting the correct slot. Keep that backup accessible **before** you flash."
   echo
   echo "---"
   echo
 
+  # ── Credits ──────────────────────────────────────────────────────────────
   echo "## 🙏 Credits"
   echo
   echo "| | |"
