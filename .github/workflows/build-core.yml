@@ -277,6 +277,9 @@ jobs:
         run: |
           source config/marble.env
           source release/resolved-refs.env
+          # Word splitting on the find output is intentional: every patch file has
+          # to reach sha256sum as its own argument.
+          # shellcheck disable=SC2046
           config_hash="$(sha256sum scripts/build-kernel.sh config/marble.env config/managers.json \
             config/susfs-refs.json config/kernel-sources.json scripts/resolve-kernel-source.sh \
             scripts/apply-kernel-source-patches.sh \
