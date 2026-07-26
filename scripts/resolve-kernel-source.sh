@@ -10,7 +10,9 @@ if [[ ! -f config/kernel-sources.json ]]; then
   exit 1
 fi
 
-eval "$(
+# Captured rather than eval'd inline: `eval "$(python3 …)"` swallows a Python
+# failure, and the script then dies forty lines later on an unbound variable.
+if ! preset_env="$(
   KERNEL_SOURCE="${KERNEL_SOURCE}" SOURCE_REF="${SOURCE_REF}" python3 - config/kernel-sources.json <<'PY'
 import json
 import os
@@ -103,7 +105,17 @@ values = {
 for key, value in values.items():
     print(f"{key}={shlex.quote(value)}")
 PY
-)"
+)"; then
+  echo "::error::Failed to resolve kernel_source '${KERNEL_SOURCE}' from config/kernel-sources.json"
+  exit 1
+fi
+
+if [[ -z "${preset_env}" ]]; then
+  echo "::error::Kernel preset resolver produced no output (is python3 available?)"
+  exit 1
+fi
+
+eval "${preset_env}"
 
 mkdir -p release
 {

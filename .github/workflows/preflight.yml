@@ -1,9 +1,9 @@
 name: Marble Builder Preflight
 
 on:
+  # Every branch, not just main: a shellcheck break caught here costs a minute,
+  # the same break caught by a build costs forty.
   push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
 

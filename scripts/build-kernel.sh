@@ -10,6 +10,24 @@ ENABLE_SUSFS="${ENABLE_SUSFS:-false}"
 JOBS="${JOBS:-$(nproc)}"
 USE_CCACHE="${USE_CCACHE:-true}"
 TOOLCHAIN="${TOOLCHAIN:-android-r416183b}"
+builder_root="$(pwd)"
+RESOLVED_REFS_FILE="${RESOLVED_REFS_FILE:-release/resolved-refs.env}"
+
+# Percentages from `ccache -s`, so summaries can report cache effectiveness
+# without re-parsing the raw stats blob. Never fails the build.
+write_ccache_hit_rates() {
+  local stats="$1" out="$2" cacheable hits direct
+  [[ -f "${stats}" ]] || return 0
+  cacheable="$(awk '/Cacheable calls:/ { match($0, /[0-9]+/); print substr($0, RSTART, RLENGTH); exit }' "${stats}")"
+  hits="$(awk '/^[[:space:]]+Hits:/ { match($0, /[0-9]+/); print substr($0, RSTART, RLENGTH); exit }' "${stats}")"
+  direct="$(awk '/Direct:/ { match($0, /[0-9]+/); print substr($0, RSTART, RLENGTH); exit }' "${stats}")"
+  if [[ "${cacheable:-0}" =~ ^[0-9]+$ ]] && (( cacheable > 0 )); then
+    {
+      awk -v h="${hits:-0}" -v c="${cacheable}" 'BEGIN{printf "ccache_hit_rate=%.1f%%\n", (h/c)*100}'
+      awk -v d="${direct:-0}" -v c="${cacheable}" 'BEGIN{printf "ccache_direct_rate=%.1f%%\n", (d/c)*100}'
+    } >> "${out}"
+  fi
+}
 
 # Free GitHub-hosted runners (~7 GiB) often OOM (exit 137) while linking vmlinux
 # with LLVM 22 at full -j$(nproc). Cap parallelism for the heavy toolchain.
@@ -30,6 +48,26 @@ export ARCH
 export SUBARCH="${ARCH}"
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-marble}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-github-actions}"
+
+# Reproducible builds: identical inputs must produce a byte-identical Image, so
+# the embedded timestamp comes from the kernel source commit rather than the
+# wall clock. `uname -a` therefore shows the source date; the real CI build time
+# stays in build-info, the summary, and the AnyKernel banner.
+if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
+  SOURCE_DATE_EPOCH="$(git log -1 --format=%ct 2>/dev/null || true)"
+fi
+if [[ ! "${SOURCE_DATE_EPOCH}" =~ ^[0-9]+$ ]]; then
+  echo "::warning::Could not read the source commit date; falling back to the current time (build will not be reproducible)"
+  SOURCE_DATE_EPOCH="$(date -u +%s)"
+fi
+export SOURCE_DATE_EPOCH
+export KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP:-$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%a %b %d %H:%M:%S UTC %Y')}"
+echo "Build timestamp pinned to ${KBUILD_BUILD_TIMESTAMP} (epoch ${SOURCE_DATE_EPOCH})"
+# Only the epoch goes into resolved-refs.env: package-anykernel.sh `source`s that
+# file, and the formatted timestamp contains spaces. write-build-info-txt.sh
+# formats it for the human-readable record.
+echo "source_date_epoch=${SOURCE_DATE_EPOCH}" >> "${builder_root}/${RESOLVED_REFS_FILE}"
+
 export CCACHE_DIR="${CCACHE_DIR:-${HOME}/.ccache}"
 export CCACHE_COMPILERCHECK=content
 export CCACHE_NOHASHDIR=true
@@ -44,15 +82,19 @@ fi
 
 if [[ "${USE_CCACHE}" == "true" ]] && command -v ccache >/dev/null 2>&1; then
   export CC="ccache clang"
-  # LLVM 22 + LOS trees are heavier; allow a larger object cache when that toolchain is selected.
-  if [[ "${TOOLCHAIN}" == "llvm-22.1.8" ]]; then
-    ccache -M 6G
-  else
-    ccache -M 4G
-  fi
+  # 2 GiB per bucket. GitHub allows 10 GB of Actions cache per repository, shared
+  # with both toolchain caches and the ThinLTO cache, so a larger ccache would
+  # evict everything else instead of surviving between runs.
+  ccache -M "${MARBLE_CCACHE_SIZE:-2G}"
   ccache -o compression=true
-  # compression_level is supported on modern ccache; ignore if unavailable.
-  ccache -o compression_level=6 2>/dev/null || true
+  # ccache manual: high compression levels "may slow down compilations
+  # noticeably". Level 1 is the upstream default.
+  ccache -o compression_level="${MARBLE_CCACHE_COMPRESS_LEVEL:-1}" 2>/dev/null || true
+  # The kernel tree is re-cloned every run, so every include file has a fresh
+  # mtime. ccache disables direct mode when an include mtime is "too new", which
+  # would cost us direct hits on every single build.
+  ccache -o sloppiness="${MARBLE_CCACHE_SLOPPINESS:-include_file_mtime,include_file_ctime,time_macros,locale,system_headers}"
+  ccache -o inode_cache=true 2>/dev/null || true
   ccache -z || true
 else
   export CC="clang"
@@ -154,20 +196,24 @@ fi
 if [[ "${LTO}" == "thin" ]]; then
   # Cap ThinLTO parallel codegen on free runners (~7 GiB) to avoid OOM during link.
   THINLTO_JOBS="${THINLTO_JOBS:-2}"
-  # WildKernels-style durable ThinLTO cache (restored/saved by the workflow when present).
+  # Durable ThinLTO cache, restored and saved by the workflow.
   THINLTO_CACHE_DIR="${THINLTO_CACHE_DIR:-${HOME}/.cache/thinlto}"
+  # LLVM's default pruning policy is cache_size=75% of free disk, which on a
+  # hosted runner means tens of GiB — far past the 10 GB Actions cache budget
+  # for the whole repository. Bound it explicitly.
+  THINLTO_CACHE_POLICY="${THINLTO_CACHE_POLICY:-cache_size_bytes=${THINLTO_CACHE_MAX:-1g}:prune_after=${THINLTO_CACHE_PRUNE_AFTER:-168h}}"
   mkdir -p "${THINLTO_CACHE_DIR}"
   wrapper="$(pwd)/${RELEASE_DIR}/ld-thinlto-wrapper"
   {
     printf '#!/bin/bash\n'
-    printf 'exec ld.lld "$@" --thinlto-jobs=%s --thinlto-cache-dir=%q\n' \
-      "${THINLTO_JOBS}" "${THINLTO_CACHE_DIR}"
+    printf 'exec ld.lld "$@" --thinlto-jobs=%s --thinlto-cache-dir=%q --thinlto-cache-policy=%q\n' \
+      "${THINLTO_JOBS}" "${THINLTO_CACHE_DIR}" "${THINLTO_CACHE_POLICY}"
   } > "${wrapper}"
   chmod +x "${wrapper}"
   export LD="${wrapper}"
   export HOSTLD="${wrapper}"
   export THINLTO_CACHE_DIR
-  echo "ThinLTO jobs=${THINLTO_JOBS} cache=${THINLTO_CACHE_DIR} via ${wrapper}" | tee -a "${RELEASE_DIR}/build.log"
+  echo "ThinLTO jobs=${THINLTO_JOBS} cache=${THINLTO_CACHE_DIR} policy=${THINLTO_CACHE_POLICY}" | tee -a "${RELEASE_DIR}/build.log"
 fi
 
 make -j"${JOBS}" O="${OUT_DIR}" ARCH="${ARCH}" LLVM=1 LLVM_IAS=1 CC="${CC}" "${targets[@]}" 2>&1 | tee -a "${RELEASE_DIR}/build.log"
@@ -206,6 +252,7 @@ fi
 
 if [[ "${USE_CCACHE}" == "true" ]] && command -v ccache >/dev/null 2>&1; then
   ccache -s | tee "${RELEASE_DIR}/ccache-stats.txt" || true
+  write_ccache_hit_rates "${RELEASE_DIR}/ccache-stats.txt" "${builder_root}/${RESOLVED_REFS_FILE}"
 fi
 
 popd >/dev/null
