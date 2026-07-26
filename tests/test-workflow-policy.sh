@@ -408,11 +408,20 @@ grep -Fq 'package-ecosystem: github-actions' .github/dependabot.yml || {
   exit 1
 }
 
-for pattern in 'bash tests/test-*.sh' 'bash -n scripts/*.sh scripts/lib/*.sh tests/*.sh' 'actionlint' 'shellcheck -e SC1090,SC1091,SC2016,SC2153,SC2154'; do
+for pattern in 'for test_script in tests/test-*.sh' 'bash -n "${script}"' 'actionlint' 'shellcheck -e SC1090,SC1091,SC2016,SC2153,SC2154'; do
   grep -Fq "${pattern}" "${preflight}" || {
     echo "FAIL: preflight workflow missing pattern: ${pattern}" >&2
     exit 1
   }
+done
+
+# `bash f1 f2` executes only f1 and passes the rest as positional arguments, so
+# these must loop. Getting this wrong silently reduces the suite to one test.
+for broken in 'bash tests/test-*.sh' 'bash -n scripts/*.sh'; do
+  if grep -Fq "${broken}" "${preflight}"; then
+    echo "FAIL: preflight uses '${broken}', which only processes the first file" >&2
+    exit 1
+  fi
 done
 
 # Preflight must gate every branch: a static break caught here costs a minute,
